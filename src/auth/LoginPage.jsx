@@ -124,9 +124,7 @@ export default function LoginPage() {
           </button>
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: 11, color: '#334155', marginTop: 20 }}>
-          Default: admin / admin123 · viewer / viewer123
-        </p>
+       
       </div>
     </div>
   );
