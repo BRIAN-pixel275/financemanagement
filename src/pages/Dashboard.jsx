@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Wallet, Activity, Plus, ArrowRight, Lock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Activity, Plus, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { getTransactions, getSummary, getSettings, fmt, addTransaction } from '../data/store';
+import { subscribeToTransactions, getSummary, getSettings, fmt, addTransaction } from '../data/store';
 import { StatCard } from '../components/Card';
 import TransactionModal from '../components/TransactionModal';
 import { useAuth } from '../auth/AuthContext';
@@ -21,27 +21,39 @@ function buildChartData(transactions) {
 export default function Dashboard() {
   const [txns, setTxns] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const settings = getSettings();
   const { canEdit, isViewer } = useAuth();
 
-  useEffect(() => { setTxns(getTransactions()); }, []);
+  useEffect(() => {
+    const unsub = subscribeToTransactions((data) => {
+      setTxns(data);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
 
   const summary = getSummary(txns);
   const recent = txns.slice(0, 5);
   const chartData = buildChartData(txns);
 
-  const handleAdd = (tx) => setTxns(addTransaction(tx));
+  const handleAdd = async (tx) => { await addTransaction(tx); };
+
+  if (loading) return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 14 }}>
+      Loading...
+    </div>
+  );
 
   return (
     <div style={{ padding: '28px', flex: 1 }}>
-      {/* Header */}
       <div className="fade-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>Dashboard</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             {settings.clubName}
             {isViewer && (
-              <span style={{ marginLeft: 10, background: 'rgba(245,158,11,0.12)', color: '#f59e0b', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, letterSpacing: '0.04em' }}>
+              <span style={{ marginLeft: 10, background: 'rgba(245,158,11,0.12)', color: '#f59e0b', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>
                 VIEW ONLY
               </span>
             )}
@@ -59,7 +71,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Stats */}
       <div className="fade-up-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
         <StatCard label="Total Balance"  value={fmt(summary.balance,  settings.currency)} icon={Wallet}      color="var(--primary)" />
         <StatCard label="Total Income"   value={fmt(summary.income,   settings.currency)} icon={TrendingUp}  color="var(--success)" />
@@ -68,7 +79,6 @@ export default function Dashboard() {
       </div>
 
       <div className="fade-up-3" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16 }}>
-        {/* Chart */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 18 }}>Income vs Expenses (6 months)</h3>
           <ResponsiveContainer width="100%" height={200}>
@@ -92,7 +102,6 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
 
-        {/* Recent */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h3 style={{ fontSize: 14, fontWeight: 600 }}>Recent Transactions</h3>
@@ -101,24 +110,23 @@ export default function Dashboard() {
             </Link>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {recent.map(t => (
-              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                  background: t.type === 'income' ? '#10b98120' : '#ef444420',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14
-                }}>
-                  {t.type === 'income' ? '↑' : '↓'}
+            {recent.length === 0
+              ? <div style={{ color: 'var(--muted)', fontSize: 13 }}>No transactions yet.</div>
+              : recent.map(t => (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: t.type === 'income' ? '#10b98120' : '#ef444420', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>
+                    {t.type === 'income' ? '↑' : '↓'}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>{t.category} · {t.date}</div>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)', color: t.type === 'income' ? 'var(--success)' : 'var(--danger)', flexShrink: 0 }}>
+                    {t.type === 'income' ? '+' : '-'}{settings.currency} {t.amount.toLocaleString()}
+                  </div>
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{t.category} · {t.date}</div>
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)', color: t.type === 'income' ? 'var(--success)' : 'var(--danger)', flexShrink: 0 }}>
-                  {t.type === 'income' ? '+' : '-'}{settings.currency} {t.amount.toLocaleString()}
-                </div>
-              </div>
-            ))}
+              ))
+            }
           </div>
         </div>
       </div>

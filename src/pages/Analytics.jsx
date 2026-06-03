@@ -10,10 +10,23 @@ const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec
 
 export default function Analytics() {
   const [txns, setTxns] = useState([]);
+  const [loading, setLoading] = useState(true);
   const settings = getSettings();
   const budget = getBudget();
 
-  useEffect(() => { setTxns(getTransactions()); }, []);
+  useEffect(() => {
+    const unsub = subscribeToTransactions((data) => {
+      setTxns(data);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  if (loading) return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 14 }}>
+      Loading...
+    </div>
+  );
 
   // Pie data by category (expenses)
   const expenseCats = {};

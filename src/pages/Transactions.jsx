@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Pencil, Trash2, Lock } from 'lucide-react';
-import { getTransactions, addTransaction, updateTransaction, deleteTransaction, getSettings, fmt } from '../data/store';
+import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { subscribeToTransactions, addTransaction, updateTransaction, deleteTransaction, getSettings, fmt } from '../data/store';
 import TransactionModal from '../components/TransactionModal';
 import { useAuth } from '../auth/AuthContext';
 
@@ -9,10 +9,17 @@ export default function Transactions() {
   const [search, setSearch] = useState('');
   const [typeF, setTypeF]   = useState('all');
   const [modal, setModal]   = useState({ open: false, tx: null });
+  const [loading, setLoading] = useState(true);
   const settings = getSettings();
   const { canEdit, isViewer } = useAuth();
 
-  useEffect(() => { setTxns(getTransactions()); }, []);
+  useEffect(() => {
+    const unsub = subscribeToTransactions((data) => {
+      setTxns(data);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
 
   const filtered = txns.filter(t => {
     const matchType = typeF === 'all' || t.type === typeF;
@@ -21,13 +28,13 @@ export default function Transactions() {
     return matchType && matchSearch;
   });
 
-  const handleSave = (tx) => {
-    if (modal.tx) setTxns(updateTransaction(modal.tx.id, tx));
-    else setTxns(addTransaction(tx));
+  const handleSave = async (tx) => {
+    if (modal.tx) await updateTransaction(modal.tx.id, tx);
+    else await addTransaction(tx);
   };
 
-  const handleDelete = (id) => {
-    if (confirm('Delete this transaction?')) setTxns(deleteTransaction(id));
+  const handleDelete = async (id) => {
+    if (confirm('Delete this transaction?')) await deleteTransaction(id);
   };
 
   const inputStyle = {
@@ -36,6 +43,12 @@ export default function Transactions() {
     color: 'var(--text)', fontFamily: 'var(--font)', fontSize: 13, outline: 'none', width: 220
   };
 
+  if (loading) return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 14 }}>
+      Loading...
+    </div>
+  );
+
   return (
     <div style={{ padding: '28px', flex: 1 }}>
       <div className="fade-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -43,16 +56,13 @@ export default function Transactions() {
           <h1 style={{ fontSize: 22, fontWeight: 700 }}>Transactions</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
             {filtered.length} records
-            {isViewer && (
-              <span style={{ marginLeft: 10, background: 'rgba(245,158,11,0.12)', color: '#f59e0b', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>READ ONLY</span>
-            )}
+            {isViewer && <span style={{ marginLeft: 10, background: 'rgba(245,158,11,0.12)', color: '#f59e0b', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>READ ONLY</span>}
           </p>
         </div>
         {canEdit && (
           <button onClick={() => setModal({ open: true, tx: null })} style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '9px 16px', borderRadius: 9, border: 'none',
-            background: 'var(--primary)', color: '#fff',
+            display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px',
+            borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff',
             cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: 600, fontSize: 13
           }}>
             <Plus size={16} /> Add Transaction

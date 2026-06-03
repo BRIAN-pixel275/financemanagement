@@ -7,7 +7,12 @@ export default function Accountability() {
   const [txns, setTxns] = useState([]);
   const settings = getSettings();
 
-  useEffect(() => { setTxns(getTransactions()); }, []);
+ useEffect(() => {
+  const unsub = subscribeToTransactions((data) => {
+    setTxns(data);
+  });
+  return () => unsub();
+}, []);
 
   const summary = getSummary(txns);
 

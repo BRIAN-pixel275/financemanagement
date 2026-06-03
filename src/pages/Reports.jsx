@@ -14,7 +14,12 @@ export default function Reports() {
   const { canEdit } = useAuth();
   const settings = getSettings();
 
-  useEffect(() => { setTxns(getTransactions()); }, []);
+  useEffect(() => {
+  const unsub = subscribeToTransactions((data) => {
+    setTxns(data);
+  });
+  return () => unsub();
+}, []);
 
   const now = new Date();
   const filtered = txns.filter(t => {
