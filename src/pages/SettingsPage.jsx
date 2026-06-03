@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Save, Trash2, KeyRound, ShieldCheck, Eye } from 'lucide-react';
 import { getSettings, saveSettings, getBudget, saveBudget, EXPENSE_CATEGORIES } from '../data/store';
+import { supabase } from '../supabase';
 import Card from '../components/Card';
 import { useAuth } from '../auth/AuthContext';
+
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState(getSettings());
@@ -31,12 +33,24 @@ export default function SettingsPage() {
     setTimeout(() => setPassSaved(false), 2000);
   };
 
-  const clearData = () => {
-    if (confirm('⚠️ This will delete ALL transactions. Cannot be undone. Continue?')) {
-      localStorage.removeItem('cv_transactions');
-      alert('Transaction data cleared. Refresh the page.');
+  const clearData = async () => {
+  if (confirm('⚠️ This will delete ALL transactions permanently. Cannot be undone. Continue?')) {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // deletes all rows
+      
+      if (error) {
+        alert('Error deleting: ' + error.message);
+      } else {
+        alert('All transactions deleted successfully.');
+      }
+    } catch (err) {
+      alert('Something went wrong: ' + err.message);
     }
-  };
+  }
+};
 
   const inputStyle = {
     width: '100%', padding: '9px 12px', borderRadius: 8,
