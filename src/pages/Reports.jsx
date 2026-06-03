@@ -1,25 +1,29 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { FileDown, FileText, Printer, Eye, EyeOff, RefreshCw } from 'lucide-react';
-import { getTransactions, getSummary, getSettings, fmt } from '../data/store';
+import { subscribeToTransactions, getSummary, getSettings, fmt } from '../data/store';
 import { generateReportPDF } from '../utils/pdfGenerator';
 import { useAuth } from '../auth/AuthContext';
 import Card from '../components/Card';
 
 export default function Reports() {
-  const [txns, setTxns]         = useState([]);
-  const [period, setPeriod]     = useState('all');
-  const [pdfUrl, setPdfUrl]     = useState(null);
+  const [txns, setTxns]               = useState([]);
+  const [period, setPeriod]           = useState('all');
+  const [pdfUrl, setPdfUrl]           = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [generating, setGenerating]   = useState(false);
+  const [loading, setLoading]         = useState(true);
   const { canEdit } = useAuth();
   const settings = getSettings();
 
   useEffect(() => {
-  const unsub = subscribeToTransactions((data) => {
-    setTxns(data);
-  });
-  return () => unsub();
-}, []);
+    const unsub = subscribeToTransactions((data) => {
+      setTxns(Array.isArray(data) ? data : []);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => { setPdfUrl(null); setShowPreview(false); }, [period]);
 
   const now = new Date();
   const filtered = txns.filter(t => {
@@ -40,7 +44,6 @@ export default function Reports() {
 
   const buildPdf = () => {
     setGenerating(true);
-    // slight defer so spinner renders
     setTimeout(() => {
       const url = generateReportPDF(filtered, summary, cats, settings, period);
       setPdfUrl(url);
@@ -55,12 +58,6 @@ export default function Reports() {
     setShowPreview(false);
   };
 
-  const handleRefresh = () => {
-    setPdfUrl(null);
-    setShowPreview(false);
-    setTimeout(buildPdf, 50);
-  };
-
   const handleDownload = () => {
     if (!pdfUrl) { buildPdf(); return; }
     const a = document.createElement('a');
@@ -70,129 +67,80 @@ export default function Reports() {
   };
 
   const handlePrint = () => {
-    if (!pdfUrl) {
-      const url = generateReportPDF(filtered, summary, cats, settings, period);
-      const win = window.open(url);
-      win && win.addEventListener('load', () => win.print());
-      return;
-    }
-    const win = window.open(pdfUrl);
+    const url = pdfUrl || generateReportPDF(filtered, summary, cats, settings, period);
+    const win = window.open(url);
     win && win.addEventListener('load', () => win.print());
   };
 
   const exportCSV = () => {
     const header = 'Date,Type,Category,Description,Amount\n';
-    const rows = filtered.map(t => `${t.date},${t.type},${t.category},"${t.description}",${t.amount}`).join('\n');
-    const blob = new Blob([header + rows], { type: 'text/csv' });
-    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `clubvault-report-${period}.csv` });
+    const rows   = filtered.map(t => `${t.date},${t.type},${t.category},"${t.description}",${t.amount}`).join('\n');
+    const blob   = new Blob([header + rows], { type: 'text/csv' });
+    const a      = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `clubvault-report-${period}.csv` });
     a.click();
   };
-
-  // invalidate cached pdf when period changes
-  useEffect(() => { setPdfUrl(null); setShowPreview(false); }, [period]);
 
   const labelStyle = { fontSize: 11, color: 'var(--muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' };
   const valueStyle = { fontSize: 18, fontWeight: 700, color: '#fff', fontFamily: 'var(--mono)', marginTop: 4 };
 
+  if (loading) return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 14 }}>
+      Loading...
+    </div>
+  );
+
   return (
     <div style={{ padding: '28px', flex: 1 }}>
-      {/* Header */}
       <div className="fade-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700 }}>Reports</h1>
-          <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-            Generate, preview and export financial reports
-            {!canEdit && <span style={{ marginLeft: 8, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 20 }}>VIEWER</span>}
-          </p>
+          <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>Generate, preview and export financial reports</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {canEdit && (
-            <button onClick={exportCSV} style={{
-              display: 'flex', alignItems: 'center', gap: 7, padding: '9px 13px',
-              borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface2)',
-              color: 'var(--text)', cursor: 'pointer', fontFamily: 'var(--font)', fontSize: 12
-            }}>
+            <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer', fontFamily: 'var(--font)', fontSize: 12 }}>
               <FileDown size={14} /> CSV
             </button>
           )}
-          <button onClick={handlePrint} style={{
-            display: 'flex', alignItems: 'center', gap: 7, padding: '9px 13px',
-            borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface2)',
-            color: 'var(--text)', cursor: 'pointer', fontFamily: 'var(--font)', fontSize: 12
-          }}>
+          <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer', fontFamily: 'var(--font)', fontSize: 12 }}>
             <Printer size={14} /> Print
           </button>
-          {pdfUrl && (
-            <button onClick={handleRefresh} title="Regenerate PDF" style={{
-              display: 'flex', alignItems: 'center', gap: 7, padding: '9px 13px',
-              borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface2)',
-              color: 'var(--muted)', cursor: 'pointer', fontFamily: 'var(--font)', fontSize: 12
-            }}>
-              <RefreshCw size={14} />
-            </button>
-          )}
-          <button onClick={handlePreviewToggle} disabled={generating} style={{
-            display: 'flex', alignItems: 'center', gap: 7, padding: '9px 14px',
-            borderRadius: 9, border: 'none',
-            background: showPreview ? '#1a3a5c' : 'var(--primary)',
-            color: '#fff', cursor: generating ? 'wait' : 'pointer',
-            fontFamily: 'var(--font)', fontWeight: 600, fontSize: 12, transition: 'background .2s'
-          }}>
+          <button onClick={handlePreviewToggle} disabled={generating} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 14px', borderRadius: 9, border: 'none', background: showPreview ? '#1a3a5c' : 'var(--primary)', color: '#fff', cursor: generating ? 'wait' : 'pointer', fontFamily: 'var(--font)', fontWeight: 600, fontSize: 12 }}>
             {generating ? <RefreshCw size={14} style={{ animation: 'spin .8s linear infinite' }} /> : showPreview ? <EyeOff size={14} /> : <Eye size={14} />}
             {generating ? 'Building...' : showPreview ? 'Hide Preview' : 'Preview PDF'}
           </button>
           {pdfUrl && (
-            <button onClick={handleDownload} style={{
-              display: 'flex', alignItems: 'center', gap: 7, padding: '9px 14px',
-              borderRadius: 9, border: 'none', background: '#10b981',
-              color: '#fff', cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: 600, fontSize: 12
-            }}>
+            <button onClick={handleDownload} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 14px', borderRadius: 9, border: 'none', background: '#10b981', color: '#fff', cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: 600, fontSize: 12 }}>
               <FileDown size={14} /> Download PDF
             </button>
           )}
         </div>
       </div>
 
-      {/* Period selector */}
       <div className="fade-up-2" style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
         {[['all','All Time'],['month','This Month'],['quarter','This Quarter'],['year','This Year']].map(([v, l]) => (
-          <button key={v} onClick={() => setPeriod(v)} style={{
-            padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-            fontFamily: 'var(--font)', fontSize: 12, fontWeight: 500,
-            background: period === v ? 'var(--primary)' : 'var(--surface2)',
-            color: period === v ? '#fff' : 'var(--muted)'
-          }}>{l}</button>
+          <button key={v} onClick={() => setPeriod(v)} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'var(--font)', fontSize: 12, fontWeight: 500, background: period === v ? 'var(--primary)' : 'var(--surface2)', color: period === v ? '#fff' : 'var(--muted)' }}>{l}</button>
         ))}
       </div>
 
-      {/* PDF Preview panel */}
       {showPreview && pdfUrl && (
         <div className="fade-up" style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
             <Eye size={15} color="var(--primary)" />
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>PDF Preview</span>
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>— scroll inside the preview to see all pages</span>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>PDF Preview</span>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>— scroll to see all pages</span>
           </div>
-          <div style={{
-            borderRadius: 14, overflow: 'hidden',
-            border: '1px solid var(--border)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-          }}>
-            <iframe
-              src={pdfUrl}
-              title="Report Preview"
-              style={{ width: '100%', height: 680, border: 'none', display: 'block', background: '#1a1a2e' }}
-            />
+          <div style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+            <iframe src={pdfUrl} title="Report Preview" style={{ width: '100%', height: 680, border: 'none', display: 'block' }} />
           </div>
         </div>
       )}
 
-      {/* Summary cards */}
       <div className="fade-up-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 24 }}>
         {[
-          { label: 'Total Income',   value: fmt(summary.income, settings.currency),  color: 'var(--success)' },
-          { label: 'Total Expenses', value: fmt(summary.expense, settings.currency), color: 'var(--danger)'  },
-          { label: 'Net Balance',    value: fmt(summary.balance, settings.currency), color: summary.balance >= 0 ? 'var(--primary)' : 'var(--danger)' },
+          { label: 'Total Income',   value: fmt(summary.income,   settings.currency), color: 'var(--success)' },
+          { label: 'Total Expenses', value: fmt(summary.expense,  settings.currency), color: 'var(--danger)'  },
+          { label: 'Net Balance',    value: fmt(summary.balance,  settings.currency), color: summary.balance >= 0 ? 'var(--primary)' : 'var(--danger)' },
         ].map(c => (
           <div key={c.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px', borderTop: `3px solid ${c.color}` }}>
             <div style={labelStyle}>{c.label}</div>
@@ -201,7 +149,6 @@ export default function Reports() {
         ))}
       </div>
 
-      {/* Category breakdown */}
       <Card className="fade-up-4">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
           <FileText size={18} color="var(--primary)" />

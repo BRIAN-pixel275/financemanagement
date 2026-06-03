@@ -1,22 +1,22 @@
 import { useState, useEffect } from 'react';
-import { getTransactions, getSummary, getSettings, getBudget, fmt } from '../data/store';
+import { subscribeToTransactions, getSummary, getSettings, getBudget, fmt } from '../data/store';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid
+  PieChart, Pie, Cell, Legend
 } from 'recharts';
 import Card from '../components/Card';
 
 const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899'];
 
 export default function Analytics() {
-  const [txns, setTxns] = useState([]);
+  const [txns, setTxns]     = useState([]);
   const [loading, setLoading] = useState(true);
   const settings = getSettings();
-  const budget = getBudget();
+  const budget   = getBudget();
 
   useEffect(() => {
     const unsub = subscribeToTransactions((data) => {
-      setTxns(data);
+      setTxns(Array.isArray(data) ? data : []);
       setLoading(false);
     });
     return () => unsub();
@@ -28,14 +28,12 @@ export default function Analytics() {
     </div>
   );
 
-  // Pie data by category (expenses)
   const expenseCats = {};
   txns.filter(t => t.type === 'expense').forEach(t => {
     expenseCats[t.category] = (expenseCats[t.category] || 0) + t.amount;
   });
   const pieData = Object.entries(expenseCats).map(([name, value]) => ({ name, value }));
 
-  // Monthly bar
   const monthly = {};
   txns.forEach(t => {
     const mo = t.date.slice(0, 7);
@@ -44,12 +42,10 @@ export default function Analytics() {
   });
   const barData = Object.values(monthly).sort((a, b) => a.month.localeCompare(b.month));
 
-  // Budget vs actual
   const budgetData = Object.entries(budget).map(([cat, budgeted]) => ({
     category: cat,
     budgeted,
     actual: expenseCats[cat] || 0,
-    variance: budgeted - (expenseCats[cat] || 0)
   })).filter(d => d.budgeted > 0);
 
   const summary = getSummary(txns);
@@ -62,10 +58,9 @@ export default function Analytics() {
         <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>Financial insights for {settings.clubName}</p>
       </div>
 
-      {/* KPI row */}
       <div className="fade-up-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
         {[
-          { label: 'Savings Rate',    value: `${savingsRate}%`,                   sub: 'of income retained' },
+          { label: 'Savings Rate',    value: `${savingsRate}%`,  sub: 'of income retained' },
           { label: 'Avg Transaction', value: fmt(txns.length ? (summary.income + summary.expense) / txns.length : 0, settings.currency), sub: 'per transaction' },
           { label: 'Expense Ratio',   value: `${summary.income > 0 ? ((summary.expense / summary.income) * 100).toFixed(1) : 0}%`, sub: 'expense to income' },
         ].map(k => (
@@ -78,7 +73,6 @@ export default function Analytics() {
       </div>
 
       <div className="fade-up-3" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16, marginBottom: 16 }}>
-        {/* Monthly bar */}
         <Card>
           <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 18 }}>Monthly Income vs Expenses</h3>
           <ResponsiveContainer width="100%" height={220}>
@@ -92,7 +86,6 @@ export default function Analytics() {
           </ResponsiveContainer>
         </Card>
 
-        {/* Pie */}
         <Card>
           <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 18 }}>Expenses by Category</h3>
           {pieData.length === 0
@@ -110,14 +103,13 @@ export default function Analytics() {
         </Card>
       </div>
 
-      {/* Budget vs Actual */}
       <Card className="fade-up-4">
         <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 18 }}>Budget vs Actual Spending</h3>
         {budgetData.length === 0
           ? <div style={{ color: 'var(--muted)', fontSize: 13 }}>No budget set. Go to Settings to configure budgets.</div>
           : <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {budgetData.map(d => {
-                const pct = Math.min((d.actual / d.budgeted) * 100, 100);
+                const pct  = Math.min((d.actual / d.budgeted) * 100, 100);
                 const over = d.actual > d.budgeted;
                 return (
                   <div key={d.category}>
