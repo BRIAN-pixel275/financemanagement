@@ -38,7 +38,7 @@ export default function Accountability() {
   ];
 
   return (
-    <div style={{ padding: '28px', flex: 1 }}>
+    <div style={{ padding: 'clamp(14px, 4vw, 28px)', flex: 1 }}>
       <div className="fade-up" style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700 }}>Accountability</h1>
         <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>Audit trail and compliance checks</p>

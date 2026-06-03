@@ -90,7 +90,7 @@ export default function Reports() {
   );
 
   return (
-    <div style={{ padding: '28px', flex: 1 }}>
+   <div style={{ padding: 'clamp(14px, 4vw, 28px)', flex: 1 }}>
       <div className="fade-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700 }}>Reports</h1>

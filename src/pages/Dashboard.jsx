@@ -46,7 +46,7 @@ export default function Dashboard() {
   );
 
   return (
-    <div style={{ padding: '28px', flex: 1 }}>
+    <div style={{ padding: 'clamp(14px, 4vw, 28px)', flex: 1 }}>
       <div className="fade-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>Dashboard</h1>
@@ -71,14 +71,14 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="fade-up-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
+      <div className="fade-up-2 stat-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
         <StatCard label="Total Balance"  value={fmt(summary.balance,  settings.currency)} icon={Wallet}      color="var(--primary)" />
         <StatCard label="Total Income"   value={fmt(summary.income,   settings.currency)} icon={TrendingUp}  color="var(--success)" />
         <StatCard label="Total Expenses" value={fmt(summary.expense,  settings.currency)} icon={TrendingDown} color="var(--danger)"  />
         <StatCard label="Transactions"   value={summary.count}                            icon={Activity}    color="var(--warning)" />
       </div>
 
-      <div className="fade-up-3" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16 }}>
+      <div className="fade-up-3 two-col" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16 }}>
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 18 }}>Income vs Expenses (6 months)</h3>
           <ResponsiveContainer width="100%" height={200}>

@@ -50,7 +50,7 @@ export default function Transactions() {
   );
 
   return (
-    <div style={{ padding: '28px', flex: 1 }}>
+    <div style={{ padding: 'clamp(14px, 4vw, 28px)', flex: 1 }}>
       <div className="fade-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700 }}>Transactions</h1>

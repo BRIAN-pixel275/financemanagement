@@ -52,13 +52,13 @@ export default function Analytics() {
   const savingsRate = summary.income > 0 ? ((summary.balance / summary.income) * 100).toFixed(1) : 0;
 
   return (
-    <div style={{ padding: '28px', flex: 1 }}>
+    <div style={{ padding: 'clamp(14px, 4vw, 28px)', flex: 1 }}>
       <div className="fade-up" style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700 }}>Analytics</h1>
         <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>Financial insights for {settings.clubName}</p>
       </div>
 
-      <div className="fade-up-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
+      <div className="fade-up-2 stat-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
         {[
           { label: 'Savings Rate',    value: `${savingsRate}%`,  sub: 'of income retained' },
           { label: 'Avg Transaction', value: fmt(txns.length ? (summary.income + summary.expense) / txns.length : 0, settings.currency), sub: 'per transaction' },
@@ -72,7 +72,7 @@ export default function Analytics() {
         ))}
       </div>
 
-      <div className="fade-up-3" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div className="fade-up-3 two-col" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16, marginBottom: 16 }}>
         <Card>
           <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 18 }}>Monthly Income vs Expenses</h3>
           <ResponsiveContainer width="100%" height={220}>
