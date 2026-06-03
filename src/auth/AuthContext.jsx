@@ -1,15 +1,6 @@
-// ─── Auth System ─────────────────────────────────────────────────────────────
-// Two roles: admin (full access) and viewer (read-only, can print/export)
-// Credentials stored in settings. Session stored in sessionStorage.
-
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState } from 'react';
+import { supabase } from '../supabase';
 import { getSettings } from '../data/store';
-
-// Default credentials (users can change in Settings)
-export const DEFAULT_CREDENTIALS = {
-  admin:  { password: 'admin123',  role: 'admin'  },
-  viewer: { password: 'viewer123', role: 'viewer' },
-};
 
 const SESSION_KEY = 'cv_session';
 
@@ -23,21 +14,47 @@ export function AuthProvider({ children }) {
     } catch { return null; }
   });
 
-  const login = (username, password) => {
-    const settings = getSettings();
-    // Check credentials — settings override defaults
-    const creds = {
-      admin:  { password: settings.adminPass  || DEFAULT_CREDENTIALS.admin.password,  role: 'admin'  },
-      viewer: { password: settings.viewerPass || DEFAULT_CREDENTIALS.viewer.password, role: 'viewer' },
-    };
-    const match = creds[username];
-    if (match && match.password === password) {
-      const session = { username, role: match.role, loginAt: new Date().toISOString() };
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-      setUser(session);
-      return { ok: true };
+  const login = async (username, password) => {
+    try {
+      // Fetch passwords from Supabase
+      const { data, error } = await supabase
+        .from('settings')
+        .select('key, value');
+
+      if (error) throw error;
+
+      const map = {};
+      data.forEach(row => { map[row.key] = row.value; });
+
+      const correctPass = username === 'admin'
+        ? (map.adminPass  || 'admin123')
+        : (map.viewerPass || 'viewer123');
+
+      if (password === correctPass) {
+        const role = username === 'admin' ? 'admin' : 'viewer';
+        const session = { username, role, loginAt: new Date().toISOString() };
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        setUser(session);
+        return { ok: true };
+      }
+
+      return { ok: false, error: 'Invalid username or password' };
+    } catch (err) {
+      // Fallback to localStorage if Supabase fails
+      const settings = getSettings();
+      const correctPass = username === 'admin'
+        ? (settings.adminPass  || 'admin123')
+        : (settings.viewerPass || 'viewer123');
+
+      if (password === correctPass) {
+        const role = username === 'admin' ? 'admin' : 'viewer';
+        const session = { username, role, loginAt: new Date().toISOString() };
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        setUser(session);
+        return { ok: true };
+      }
+      return { ok: false, error: 'Invalid username or password' };
     }
-    return { ok: false, error: 'Invalid username or password' };
   };
 
   const logout = () => {

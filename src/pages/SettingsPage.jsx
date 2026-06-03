@@ -22,16 +22,26 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handlePassSave = () => {
-    const s = getSettings();
-    if (adminPass)  s.adminPass  = adminPass;
-    if (viewerPass) s.viewerPass = viewerPass;
-    saveSettings(s);
+ const handlePassSave = async () => {
+  try {
+    if (adminPass) {
+      await supabase
+        .from('settings')
+        .upsert({ key: 'adminPass', value: adminPass });
+    }
+    if (viewerPass) {
+      await supabase
+        .from('settings')
+        .upsert({ key: 'viewerPass', value: viewerPass });
+    }
     setAdminPass('');
     setViewerPass('');
     setPassSaved(true);
     setTimeout(() => setPassSaved(false), 2000);
-  };
+  } catch (err) {
+    alert('Error saving passwords: ' + err.message);
+  }
+};
 
   const clearData = async () => {
   if (confirm('⚠️ This will delete ALL transactions permanently. Cannot be undone. Continue?')) {
