@@ -6,7 +6,10 @@ export function subscribeToTransactions(callback) {
     .from('transactions')
     .select('*')
     .order('date', { ascending: false })
-    .then(({ data }) => callback(data || []));
+    .then(({ data, error }) => {
+      if (error) console.error('Fetch error:', error);
+      callback(data || []);
+    });
 
   const channel = supabase
     .channel('transactions')
