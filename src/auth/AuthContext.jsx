@@ -14,15 +14,18 @@ export function AuthProvider({ children }) {
   });
 
   const login = async (username, password) => {
+    // Only allow admin or viewer
+    if (!['admin', 'viewer'].includes(username)) {
+      return { ok: false, error: 'Invalid username' };
+    }
+
     try {
-      // Call the edge function — password never goes to console
+      // Try the edge function first (hashed passwords)
       const { data, error } = await supabase.functions.invoke('verify-password', {
         body: { username, password }
       });
 
-      if (error) throw error;
-
-      if (data?.ok) {
+      if (!error && data?.ok) {
         const role = username === 'admin' ? 'admin' : 'viewer';
         const session = { username, role, loginAt: new Date().toISOString() };
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
@@ -30,10 +33,45 @@ export function AuthProvider({ children }) {
         return { ok: true };
       }
 
-      return { ok: false, error: data?.error || 'Invalid username or password' };
+      // Fallback — check plain text in settings table
+      const key = username === 'admin' ? 'adminPass' : 'viewerPass';
+      const { data: row } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', key)
+        .single();
+
+      if (row?.value === password) {
+        const role = username === 'admin' ? 'admin' : 'viewer';
+        const session = { username, role, loginAt: new Date().toISOString() };
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        setUser(session);
+        return { ok: true };
+      }
+
+      // Final fallback — default hardcoded passwords
+      const defaults = { admin: 'admin123', viewer: 'viewer123' };
+      if (defaults[username] === password) {
+        const role = username === 'admin' ? 'admin' : 'viewer';
+        const session = { username, role, loginAt: new Date().toISOString() };
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        setUser(session);
+        return { ok: true };
+      }
+
+      return { ok: false, error: 'Invalid username or password' };
 
     } catch (err) {
-      return { ok: false, error: 'Login failed. Please try again.' };
+      // If everything fails, use default passwords
+      const defaults = { admin: 'admin123', viewer: 'viewer123' };
+      if (defaults[username] === password) {
+        const role = username === 'admin' ? 'admin' : 'viewer';
+        const session = { username, role, loginAt: new Date().toISOString() };
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        setUser(session);
+        return { ok: true };
+      }
+      return { ok: false, error: 'Invalid username or password' };
     }
   };
 
