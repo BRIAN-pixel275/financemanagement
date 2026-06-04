@@ -24,16 +24,29 @@ export default function SettingsPage() {
 
  const handlePassSave = async () => {
   try {
+    // Hash via edge function before saving
+    const hashPassword = async (plain) => {
+      const res = await fetch(
+        `https://your-project-ref.supabase.co/functions/v1/hash-password`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: plain })
+        }
+      );
+      const data = await res.json();
+      return data.hash;
+    };
+
     if (adminPass) {
-      await supabase
-        .from('settings')
-        .upsert({ key: 'adminPass', value: adminPass });
+      const hash = await hashPassword(adminPass);
+      await supabase.from('settings').upsert({ key: 'adminPass', value: hash });
     }
     if (viewerPass) {
-      await supabase
-        .from('settings')
-        .upsert({ key: 'viewerPass', value: viewerPass });
+      const hash = await hashPassword(viewerPass);
+      await supabase.from('settings').upsert({ key: 'viewerPass', value: hash });
     }
+
     setAdminPass('');
     setViewerPass('');
     setPassSaved(true);
@@ -41,6 +54,7 @@ export default function SettingsPage() {
   } catch (err) {
     alert('Error saving passwords: ' + err.message);
   }
+   };
 };
 
   const clearData = async () => {

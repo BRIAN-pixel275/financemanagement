@@ -1,6 +1,5 @@
 import { createContext, useContext, useState } from 'react';
 import { supabase } from '../supabase';
-import { getSettings } from '../data/store';
 
 const SESSION_KEY = 'cv_session';
 
@@ -16,21 +15,14 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     try {
-      // Fetch passwords from Supabase
-      const { data, error } = await supabase
-        .from('settings')
-        .select('key, value');
+      // Call the edge function — password never goes to console
+      const { data, error } = await supabase.functions.invoke('verify-password', {
+        body: { username, password }
+      });
 
       if (error) throw error;
 
-      const map = {};
-      data.forEach(row => { map[row.key] = row.value; });
-
-      const correctPass = username === 'admin'
-        ? (map.adminPass  || 'admin123')
-        : (map.viewerPass || 'viewer123');
-
-      if (password === correctPass) {
+      if (data?.ok) {
         const role = username === 'admin' ? 'admin' : 'viewer';
         const session = { username, role, loginAt: new Date().toISOString() };
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
@@ -38,22 +30,10 @@ export function AuthProvider({ children }) {
         return { ok: true };
       }
 
-      return { ok: false, error: 'Invalid username or password' };
+      return { ok: false, error: data?.error || 'Invalid username or password' };
+
     } catch (err) {
-      // Fallback to localStorage if Supabase fails
-      const settings = getSettings();
-      const correctPass = username === 'admin'
-        ? (settings.adminPass  || 'admin123')
-        : (settings.viewerPass || 'viewer123');
-
-      if (password === correctPass) {
-        const role = username === 'admin' ? 'admin' : 'viewer';
-        const session = { username, role, loginAt: new Date().toISOString() };
-        sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-        setUser(session);
-        return { ok: true };
-      }
-      return { ok: false, error: 'Invalid username or password' };
+      return { ok: false, error: 'Login failed. Please try again.' };
     }
   };
 
