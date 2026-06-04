@@ -72,10 +72,10 @@ export async function deleteTransaction(id) {
 
 // ── Settings (localStorage) ───────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
-  clubName: 'My Club',
+  clubName: 'KUKISA',
   treasurer: 'Brian',
   currency: 'KSh',
-  fiscalYear: '2025',
+  fiscalYear: '2026',
   email: '',
   adminPass: 'admin123',
   viewerPass: 'viewer123',
@@ -95,9 +95,9 @@ export function saveSettings(s) {
 // ── Budget (localStorage) ─────────────────────────────────────────────────────
 const DEFAULT_BUDGET = {
   'Events': 10000,
-  'Administration': 5000,
-  'Equipment': 8000,
-  'Travel': 3000,
+  'Miscellaneous': 5000,
+  'photography': 8000,
+  'Transport': 3000,
   'Food & Drinks': 4000,
   'Other': 3000,
 };
@@ -121,8 +121,8 @@ export function getSummary(transactions) {
 }
 
 // ── Categories ────────────────────────────────────────────────────────────────
-export const INCOME_CATEGORIES  = ['Membership Fees', 'Donations', 'Fundraising', 'Grants', 'Other'];
-export const EXPENSE_CATEGORIES = ['Events', 'Administration', 'Equipment', 'Travel', 'Food & Drinks', 'Other'];
+export const INCOME_CATEGORIES  = ['Membership Fees', 'Donations', 'fundraising', 'venue', 'Other'];
+export const EXPENSE_CATEGORIES = ['Events', 'Miscellaneous', 'photography', 'Transport', 'Food & Drinks', 'Other'];
 
 // ── Format currency ───────────────────────────────────────────────────────────
 export function fmt(amount, currency = 'KSh') {
