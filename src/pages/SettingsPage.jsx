@@ -1,18 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Save, Trash2, KeyRound, ShieldCheck, Eye } from 'lucide-react';
 import { getSettings, saveSettings, getBudget, saveBudget, EXPENSE_CATEGORIES } from '../data/store';
 import { supabase } from '../supabase';
 import Card from '../components/Card';
 import { useAuth } from '../auth/AuthContext';
 
-
 export default function SettingsPage() {
-  const [settings, setSettings] = useState(getSettings());
-  const [budget, setBudget]     = useState(getBudget());
-  const [saved, setSaved]       = useState(false);
-  const [adminPass, setAdminPass]   = useState('');
+  const [settings, setSettings]   = useState(getSettings());
+  const [budget, setBudget]       = useState(getBudget());
+  const [saved, setSaved]         = useState(false);
+  const [adminPass, setAdminPass] = useState('');
   const [viewerPass, setViewerPass] = useState('');
-  const [passSaved, setPassSaved]   = useState(false);
+  const [passSaved, setPassSaved] = useState(false);
+  const [passError, setPassError] = useState('');
   const { user } = useAuth();
 
   const handleSave = () => {
@@ -22,68 +22,68 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 2000);
   };
 
- const handlePassSave = async () => {
-  try {
-    // Hash via edge function before saving
-    const hashPassword = async (plain) => {
-      const res = await fetch(
-        `https://your-project-ref.supabase.co/functions/v1/hash-password`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: plain })
-        }
-      );
-      const data = await res.json();
-      return data.hash;
-    };
+  const handlePassSave = async () => {
+    setPassError('');
+    try {
+      const hashPassword = async (plain) => {
+        const { data, error } = await supabase.functions.invoke('hash-password', {
+          body: { password: plain }
+        });
+        if (error) throw error;
+        return data.hash;
+      };
 
-    if (adminPass) {
-      const hash = await hashPassword(adminPass);
-      await supabase.from('settings').upsert({ key: 'adminPass', value: hash });
-    }
-    if (viewerPass) {
-      const hash = await hashPassword(viewerPass);
-      await supabase.from('settings').upsert({ key: 'viewerPass', value: hash });
-    }
+      if (adminPass) {
+        const hash = await hashPassword(adminPass);
+        await supabase.from('settings').upsert({ key: 'adminPass', value: hash });
+      }
 
-    setAdminPass('');
-    setViewerPass('');
-    setPassSaved(true);
-    setTimeout(() => setPassSaved(false), 2000);
-  } catch (err) {
-    alert('Error saving passwords: ' + err.message);
-  }
-   };
-};
+      if (viewerPass) {
+        const hash = await hashPassword(viewerPass);
+        await supabase.from('settings').upsert({ key: 'viewerPass', value: hash });
+      }
+
+      if (!adminPass && !viewerPass) {
+        setPassError('Enter at least one password to update.');
+        return;
+      }
+
+      setAdminPass('');
+      setViewerPass('');
+      setPassSaved(true);
+      setTimeout(() => setPassSaved(false), 2000);
+    } catch (err) {
+      setPassError('Error saving passwords: ' + err.message);
+    }
+  };
 
   const clearData = async () => {
-  if (confirm('⚠️ This will delete ALL transactions permanently. Cannot be undone. Continue?')) {
-    try {
-      const { error } = await supabase
-        .from('transactions')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // deletes all rows
-      
-      if (error) {
-        alert('Error deleting: ' + error.message);
-      } else {
-        alert('All transactions deleted successfully.');
+    if (confirm('⚠️ This will delete ALL transactions permanently. Cannot be undone. Continue?')) {
+      try {
+        const { error } = await supabase
+          .from('transactions')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (error) {
+          alert('Error deleting: ' + error.message);
+        } else {
+          alert('All transactions deleted successfully.');
+        }
+      } catch (err) {
+        alert('Something went wrong: ' + err.message);
       }
-    } catch (err) {
-      alert('Something went wrong: ' + err.message);
     }
-  }
-};
+  };
 
   const inputStyle = {
     width: '100%', padding: '9px 12px', borderRadius: 8,
     background: 'var(--bg)', border: '1px solid var(--border)',
-    color: 'var(--text)', fontFamily: 'var(--font)', fontSize: 13, outline: 'none', marginTop: 6
+    color: 'var(--text)', fontFamily: 'var(--font)', fontSize: 13,
+    outline: 'none', marginTop: 6
   };
 
   return (
-    <div style={{ padding: '28px', flex: 1, maxWidth: 720 }}>
+    <div style={{ padding: 'clamp(14px, 4vw, 28px)', flex: 1, maxWidth: 720 }}>
       <div className="fade-up" style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700 }}>Settings</h1>
         <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>Admin access — configure ClubVault</p>
@@ -102,7 +102,11 @@ export default function SettingsPage() {
           ].map(f => (
             <label key={f.key} style={{ gridColumn: f.full ? '1/-1' : undefined }}>
               <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>{f.label}</span>
-              <input value={settings[f.key] || ''} onChange={e => setSettings(s => ({ ...s, [f.key]: e.target.value }))} style={inputStyle} />
+              <input
+                value={settings[f.key] || ''}
+                onChange={e => setSettings(s => ({ ...s, [f.key]: e.target.value }))}
+                style={inputStyle}
+              />
             </label>
           ))}
         </div>
@@ -110,8 +114,8 @@ export default function SettingsPage() {
           marginTop: 18, display: 'flex', alignItems: 'center', gap: 8,
           padding: '9px 18px', borderRadius: 9, border: 'none',
           background: saved ? 'var(--success)' : 'var(--primary)',
-          color: '#fff', cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: 600, fontSize: 13,
-          transition: 'background .3s'
+          color: '#fff', cursor: 'pointer', fontFamily: 'var(--font)',
+          fontWeight: 600, fontSize: 13, transition: 'background .3s'
         }}>
           <Save size={14} /> {saved ? 'Saved!' : 'Save Club Info'}
         </button>
@@ -124,7 +128,7 @@ export default function SettingsPage() {
           <h3 style={{ fontSize: 14, fontWeight: 600 }}>Change Passwords</h3>
         </div>
         <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 18 }}>
-          Leave blank to keep current password. Changes take effect on next login.
+          Leave blank to keep current password. Changes apply immediately on all devices.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <label>
@@ -132,24 +136,41 @@ export default function SettingsPage() {
               <ShieldCheck size={12} color="var(--primary)" />
               <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>Admin Password</span>
             </div>
-            <input type="password" value={adminPass} onChange={e => setAdminPass(e.target.value)}
-              placeholder="New password..." style={inputStyle} />
+            <input
+              type="password"
+              value={adminPass}
+              onChange={e => setAdminPass(e.target.value)}
+              placeholder="New password..."
+              style={inputStyle}
+            />
           </label>
           <label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 2 }}>
               <Eye size={12} color="#f59e0b" />
               <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>Viewer Password</span>
             </div>
-            <input type="password" value={viewerPass} onChange={e => setViewerPass(e.target.value)}
-              placeholder="New password..." style={inputStyle} />
+            <input
+              type="password"
+              value={viewerPass}
+              onChange={e => setViewerPass(e.target.value)}
+              placeholder="New password..."
+              style={inputStyle}
+            />
           </label>
         </div>
+
+        {passError && (
+          <div style={{ marginTop: 12, fontSize: 12, color: 'var(--danger)', background: 'rgba(239,68,68,0.1)', padding: '8px 12px', borderRadius: 8 }}>
+            {passError}
+          </div>
+        )}
+
         <button onClick={handlePassSave} style={{
           marginTop: 16, display: 'flex', alignItems: 'center', gap: 8,
           padding: '9px 18px', borderRadius: 9, border: 'none',
           background: passSaved ? 'var(--success)' : '#1e3a5f',
-          color: '#fff', cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: 600, fontSize: 13,
-          transition: 'background .3s'
+          color: '#fff', cursor: 'pointer', fontFamily: 'var(--font)',
+          fontWeight: 600, fontSize: 13, transition: 'background .3s'
         }}>
           <KeyRound size={14} /> {passSaved ? 'Passwords Updated!' : 'Update Passwords'}
         </button>
@@ -158,14 +179,19 @@ export default function SettingsPage() {
       {/* Budget */}
       <Card className="fade-up-3" style={{ marginBottom: 16 }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Category Budgets</h3>
-        <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Monthly budget targets for expense categories (0 = no limit).</p>
+        <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
+          Monthly budget targets for expense categories (0 = no limit).
+        </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {EXPENSE_CATEGORIES.map(cat => (
             <label key={cat}>
               <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>{cat}</span>
-              <input type="number" value={budget[cat] || 0}
+              <input
+                type="number"
+                value={budget[cat] || 0}
                 onChange={e => setBudget(b => ({ ...b, [cat]: parseFloat(e.target.value) || 0 }))}
-                style={inputStyle} />
+                style={inputStyle}
+              />
             </label>
           ))}
         </div>
@@ -173,7 +199,8 @@ export default function SettingsPage() {
           marginTop: 16, display: 'flex', alignItems: 'center', gap: 8,
           padding: '9px 18px', borderRadius: 9, border: 'none',
           background: saved ? 'var(--success)' : 'var(--primary)',
-          color: '#fff', cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: 600, fontSize: 13,
+          color: '#fff', cursor: 'pointer', fontFamily: 'var(--font)',
+          fontWeight: 600, fontSize: 13
         }}>
           <Save size={14} /> Save Budgets
         </button>
@@ -182,11 +209,15 @@ export default function SettingsPage() {
       {/* Danger zone */}
       <Card style={{ border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.04)' }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--danger)', marginBottom: 6 }}>Danger Zone</h3>
-        <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>Permanently delete all transaction records. This cannot be undone.</p>
+        <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
+          Permanently delete all transaction records. This cannot be undone.
+        </p>
         <button onClick={clearData} style={{
           display: 'flex', alignItems: 'center', gap: 8,
-          padding: '9px 16px', borderRadius: 9, border: '1px solid var(--danger)',
-          background: 'none', color: 'var(--danger)', cursor: 'pointer', fontFamily: 'var(--font)', fontSize: 13
+          padding: '9px 16px', borderRadius: 9,
+          border: '1px solid var(--danger)', background: 'none',
+          color: 'var(--danger)', cursor: 'pointer',
+          fontFamily: 'var(--font)', fontSize: 13
         }}>
           <Trash2 size={14} /> Clear All Transaction Data
         </button>
